@@ -31,12 +31,15 @@ Set `ACTIONS_API_KEY` (and the Higgsfield keys) in the Vercel project env, then 
 2. Name: `Sky × Higgs`
 3. **Instructions**: paste [`instructions.md`](./instructions.md)
 4. **Actions** → **Create new action**
-5. **Import from URL**: `https://skyxhiggs.vercel.app/openapi/chatgpt-actions.yaml`  
-   Or paste the YAML from `public/openapi/chatgpt-actions.yaml` (server URL is already set).
-6. **Authentication** → **API Key**  
+5. **Schema** (if Import from URL fails, paste instead — that is most reliable):
+   - Prefer paste: open [`/openapi/chatgpt-actions.json`](https://skyxhiggs.vercel.app/openapi/chatgpt-actions.json), copy all, paste into the schema box
+   - Or Import URL: `https://skyxhiggs.vercel.app/openapi/chatgpt-actions.json`
+   - YAML also works: `https://skyxhiggs.vercel.app/openapi/chatgpt-actions.yaml`
+6. You should see actions: `listModels`, `registerImage`, `generate`, `listJobs`, `cancelJob`
+7. **Authentication** → **API Key**  
    - Auth Type: **Bearer**  
    - API Key: the same `ACTIONS_API_KEY`
-7. Save and test with: “List available models” then a short Soul v2 image prompt.
+8. Save and test with: “List available models” then a short Soul v2 image prompt.
 
 ## 4. Expected chat flow
 

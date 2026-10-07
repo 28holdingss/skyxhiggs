@@ -1,0 +1,180 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Sky x Higgs",
+    "description": "Marketing creative API for Sky x Higgs. Do not retry generate. Poll listJobs until completed or failed.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://skyxhiggs.vercel.app"
+    }
+  ],
+  "paths": {
+    "/api/actions/models": {
+      "get": {
+        "operationId": "listModels",
+        "summary": "List available models",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Model catalog",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/actions/register-image": {
+      "post": {
+        "operationId": "registerImage",
+        "summary": "Register a public image URL",
+        "description": "Download a public https image and return a Higgsfield publicUrl for generate.imageUrl.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["imageUrl"],
+                "properties": {
+                  "imageUrl": {
+                    "type": "string",
+                    "description": "Public https image URL"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "publicUrl": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/actions/generate": {
+      "post": {
+        "operationId": "generate",
+        "summary": "Start an image or video generation",
+        "description": "Starts one job. Never retry this request. Then poll listJobs.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt", "mode", "model"],
+                "properties": {
+                  "prompt": { "type": "string" },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["video", "image"]
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Example seedance-2.5 or soul-v2"
+                  },
+                  "duration": { "type": "integer" },
+                  "aspectRatio": {
+                    "type": "string",
+                    "description": "Use exactly one of these strings: 16:9 or 9:16 or 1:1"
+                  },
+                  "audio": { "type": "boolean" },
+                  "imageUrl": { "type": "string" },
+                  "style": {
+                    "type": "string",
+                    "enum": ["cinematic", "anime", "ad", "trailer", "cartoon"]
+                  },
+                  "characterId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Job queued",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/actions/jobs": {
+      "get": {
+        "operationId": "listJobs",
+        "summary": "List jobs and poll status",
+        "description": "Poll after generate. When status is completed, use outputUrl.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Job list",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/actions/jobs/{id}/cancel": {
+      "post": {
+        "operationId": "cancelJob",
+        "summary": "Cancel a queued job",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated job",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
