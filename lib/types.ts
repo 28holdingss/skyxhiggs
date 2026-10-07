@@ -26,6 +26,10 @@ export type PublicJob = {
   outputUrl: string | null;
   outputKind: "video" | "image" | null;
   referenceId: string | null;
+  /** Higgsfield request id — use with getJobStatus when listJobs is empty across instances. */
+  requestId: string | null;
+  /** Higgsfield status URL — poll via getJobStatus, do not fetch directly. */
+  statusUrl: string | null;
   error: string | null;
   estimate: Estimate | null;
   createdAt: string;

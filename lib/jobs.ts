@@ -1,11 +1,17 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { StudioError } from "@/lib/errors";
-import { cancelRequest, getReferenceStatus, getRequestStatus, type HiggsStatus } from "@/lib/higgsfield";
+import {
+  cancelRequest,
+  getReferenceStatus,
+  getRequestStatus,
+  resolveStatusTarget,
+  type HiggsStatus,
+} from "@/lib/higgsfield";
 import type { AspectRatio, StyleId } from "@/lib/prompts";
 import type { Estimate, JobStatus, PublicJob } from "@/lib/types";
 
-const DATA_FILE = path.join(process.cwd(), "data", "jobs.json");
 const SUBMIT_TIMEOUT_MS = 3 * 60 * 1000;
 const MAX_STORED = 40;
 
@@ -31,6 +37,17 @@ type StoredJob = {
   createdAt: string;
   updatedAt: string;
 };
+
+/** In-memory copy so the same serverless isolate can list jobs even if disk is ephemeral. */
+let memoryJobs: StoredJob[] = [];
+
+function jobsFilePath() {
+  const custom = process.env.SKY_JOBS_DIR?.trim();
+  if (custom) return path.join(custom, "jobs.json");
+  // Vercel’s app directory is read-only; only /tmp is writable.
+  if (process.env.VERCEL) return path.join(os.tmpdir(), "sky-higgs", "jobs.json");
+  return path.join(process.cwd(), "data", "jobs.json");
+}
 
 const REMOTE_STATUSES = new Set<JobStatus>([
   "queued",
@@ -74,37 +91,63 @@ function toPublic(job: StoredJob): PublicJob {
     aspectRatio: job.aspectRatio,
     duration: job.duration,
     inputImageUrl: job.inputImageUrl,
-      outputUrl: job.outputUrl,
-      outputKind: job.outputKind,
-      referenceId: job.referenceId ?? null,
-      error: job.error,
+    outputUrl: job.outputUrl,
+    outputKind: job.outputKind,
+    referenceId: job.referenceId ?? null,
+    requestId: job.requestId,
+    statusUrl: job.statusUrl,
+    error: job.error,
     estimate: job.estimate,
     createdAt: job.createdAt,
   };
 }
 
-async function readJobs() {
-  try {
-    const raw = await readFile(DATA_FILE, "utf8");
-    const parsed = JSON.parse(raw) as StoredJob[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((job) => ({
-      ...job,
-      model: job.model || (job.mode === "image" ? "soul-v2" : "seedance-2"),
-      audio: typeof job.audio === "boolean" ? job.audio : null,
-      referenceId: typeof job.referenceId === "string" ? job.referenceId : null,
-    }));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
+function normalizeJob(job: StoredJob): StoredJob {
+  return {
+    ...job,
+    model: job.model || (job.mode === "image" ? "soul-v2" : "seedance-2"),
+    audio: typeof job.audio === "boolean" ? job.audio : null,
+    referenceId: typeof job.referenceId === "string" ? job.referenceId : null,
+    requestId: typeof job.requestId === "string" ? job.requestId : null,
+    statusUrl: typeof job.statusUrl === "string" ? job.statusUrl : null,
+  };
+}
+
+function mergeJobs(fromFile: StoredJob[], fromMemory: StoredJob[]) {
+  const map = new Map<string, StoredJob>();
+  for (const job of fromFile) map.set(job.id, normalizeJob(job));
+  for (const job of fromMemory) {
+    const existing = map.get(job.id);
+    const next = normalizeJob(job);
+    if (!existing || existing.updatedAt <= next.updatedAt) map.set(job.id, next);
   }
+  return [...map.values()];
+}
+
+async function readJobs() {
+  let fromFile: StoredJob[] = [];
+  try {
+    const raw = await readFile(jobsFilePath(), "utf8");
+    const parsed = JSON.parse(raw) as StoredJob[];
+    if (Array.isArray(parsed)) fromFile = parsed;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  return mergeJobs(fromFile, memoryJobs);
 }
 
 async function writeJobs(jobs: StoredJob[]) {
-  await mkdir(path.dirname(DATA_FILE), { recursive: true });
-  const temporary = `${DATA_FILE}.tmp`;
-  await writeFile(temporary, JSON.stringify(jobs, null, 2));
-  await rename(temporary, DATA_FILE);
+  memoryJobs = jobs.map(normalizeJob);
+  const file = jobsFilePath();
+  try {
+    await mkdir(path.dirname(file), { recursive: true });
+    const temporary = `${file}.tmp`;
+    await writeFile(temporary, JSON.stringify(memoryJobs, null, 2));
+    await rename(temporary, file);
+  } catch (error) {
+    // Memory still holds the jobs for this isolate; disk may be unavailable.
+    console.error("jobs persist failed; using memory only", error);
+  }
 }
 
 function expireSubmitting(jobs: StoredJob[]) {
@@ -294,4 +337,70 @@ export async function cancelStoredJob(id: string) {
   }
 
   return settleJob(id, { status: "canceled", error: null });
+}
+
+/**
+ * Poll Higgsfield directly by statusUrl/requestId from a prior generate response.
+ * Works across serverless instances when local job files are missing.
+ */
+export async function pollRemoteJob(input: {
+  statusUrl?: string | null;
+  requestId?: string | null;
+  jobId?: string | null;
+}) {
+  const target = resolveStatusTarget(input);
+  const remote = await getRequestStatus(target.statusUrl);
+
+  const local = await locked(async () => {
+    const jobs = await readJobs();
+    const index = jobs.findIndex(
+      (job) =>
+        (input.jobId && job.id === input.jobId) ||
+        job.requestId === target.requestId ||
+        job.statusUrl === target.statusUrl,
+    );
+    if (index < 0) return null;
+    if (!isActive(jobs[index]) && jobs[index].status !== "submitting") {
+      return toPublic(jobs[index]);
+    }
+    jobs[index] = applyHiggsStatus(jobs[index], remote);
+    await writeJobs(jobs);
+    return toPublic(jobs[index]);
+  });
+
+  if (local) return { job: local };
+
+  let status = REMOTE_STATUSES.has(remote.status as JobStatus)
+    ? (remote.status as JobStatus)
+    : "in_progress";
+  let error = remote.error;
+  if (status === "completed" && !remote.outputUrl) {
+    status = "failed";
+    error = "Higgsfield finished without a media file.";
+  }
+  if (status === "nsfw") error = error || "Higgsfield stopped this for content moderation.";
+  if (status === "failed") error = error || "Generation failed.";
+
+  return {
+    job: {
+      id: input.jobId || target.requestId,
+      status,
+      prompt: "",
+      mode: remote.outputKind === "image" ? "image" : "video",
+      model: "",
+      audio: null,
+      style: null,
+      aspectRatio: "16:9" as const,
+      duration: null,
+      inputImageUrl: null,
+      outputUrl: remote.outputUrl,
+      outputKind: remote.outputKind,
+      referenceId: remote.referenceId,
+      requestId: target.requestId,
+      statusUrl: target.statusUrl,
+      error,
+      estimate: null,
+      createdAt: new Date().toISOString(),
+    } satisfies PublicJob,
+  };
 }

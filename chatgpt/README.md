@@ -35,7 +35,7 @@ Set `ACTIONS_API_KEY` (and the Higgsfield keys) in the Vercel project env, then 
    - Prefer paste: open [`/openapi/chatgpt-actions.json`](https://skyxhiggs.vercel.app/openapi/chatgpt-actions.json), copy all, paste into the schema box
    - Or Import URL: `https://skyxhiggs.vercel.app/openapi/chatgpt-actions.json`
    - YAML also works: `https://skyxhiggs.vercel.app/openapi/chatgpt-actions.yaml`
-6. You should see actions: `listModels`, `registerImage`, `generate`, `listJobs`, `cancelJob`
+6. You should see actions: `listModels`, `registerImage`, `generate`, `getJobStatus`, `listJobs`, `cancelJob`
 7. **Authentication** → **API Key**  
    - Auth Type: **Bearer**  
    - API Key: the same `ACTIONS_API_KEY`
@@ -46,7 +46,7 @@ Set `ACTIONS_API_KEY` (and the Higgsfield keys) in the Vercel project env, then 
 1. User asks for a clip or still.
 2. GPT may call `listModels`, then `registerImage` if there is a photo URL.
 3. GPT calls `generate` **once**.
-4. GPT polls `listJobs` until terminal.
+4. GPT polls `getJobStatus` with `statusUrl` (or `requestId`) until terminal.
 5. GPT returns `outputUrl`.
 
 ## Routes

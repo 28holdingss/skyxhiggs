@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: Sky x Higgs
-  description: Marketing creative API for Sky x Higgs. Do not retry generate. Poll listJobs until completed or failed.
+  description: Marketing creative API for Sky x Higgs. Do not retry generate. After generate, poll getJobStatus with statusUrl (or requestId) until completed or failed.
   version: "1.0.0"
 servers:
   - url: https://skyxhiggs.vercel.app
@@ -91,7 +91,7 @@ paths:
     post:
       operationId: generate
       summary: Start an image or video generation
-      description: Starts one job. Never retry this request. Then poll listJobs.
+      description: Starts one job. Never retry this request. Save statusUrl and requestId, then poll getJobStatus.
       security:
         - BearerAuth: []
       requestBody:
@@ -122,8 +122,8 @@ paths:
   /api/actions/jobs:
     get:
       operationId: listJobs
-      summary: List jobs and poll status
-      description: Poll after generate. When status is completed, use outputUrl.
+      summary: List jobs on this studio
+      description: Optional history. Prefer getJobStatus after generate when polling a specific shot.
       security:
         - BearerAuth: []
       responses:
@@ -142,6 +142,48 @@ paths:
                     type: boolean
                   authError:
                     type: boolean
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+  /api/actions/jobs/status:
+    post:
+      operationId: getJobStatus
+      summary: Poll one generation by statusUrl or requestId
+      description: After generate, poll with the returned statusUrl (or requestId) until completed, failed, nsfw, or canceled. Do not fetch statusUrl yourself.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                statusUrl:
+                  type: string
+                  description: statusUrl from the generate response
+                requestId:
+                  type: string
+                  description: requestId from the generate response
+                jobId:
+                  type: string
+                  description: Optional studio job id from generate
+      responses:
+        "200":
+          description: Current job status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job:
+                    $ref: "#/components/schemas/Job"
         "401":
           description: Unauthorized
           content:
@@ -256,6 +298,14 @@ components:
             - string
             - "null"
         referenceId:
+          type:
+            - string
+            - "null"
+        requestId:
+          type:
+            - string
+            - "null"
+        statusUrl:
           type:
             - string
             - "null"

@@ -86,6 +86,37 @@ function trustedHiggsUrl(value: unknown, requestId: string, action: "status" | "
   return higgsUrl(requestId, action);
 }
 
+/** Accept statusUrl or requestId from ChatGPT Actions; never allow arbitrary hosts. */
+export function resolveStatusTarget(input: { statusUrl?: string | null; requestId?: string | null }) {
+  const requestId = input.requestId?.trim() ?? "";
+  if (requestId && /^[a-zA-Z0-9_-]+$/.test(requestId)) {
+    return { requestId, statusUrl: higgsUrl(requestId, "status") };
+  }
+
+  const raw = input.statusUrl?.trim() ?? "";
+  if (!raw) {
+    throw new StudioError("Send statusUrl from generate, or requestId.", 400);
+  }
+
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new StudioError("statusUrl must be a valid https URL.", 400);
+  }
+
+  if (url.origin !== API_BASE || url.protocol !== "https:") {
+    throw new StudioError("statusUrl must be a Higgsfield API URL.", 400);
+  }
+
+  const match = url.pathname.match(/^\/requests\/([^/]+)\/status$/);
+  if (!match) {
+    throw new StudioError("statusUrl must point at a Higgsfield request status.", 400);
+  }
+
+  return { requestId: match[1], statusUrl: `${API_BASE}/requests/${match[1]}/status` };
+}
+
 async function errorMessage(response: Response) {
   try {
     const body = (await response.json()) as { detail?: unknown };

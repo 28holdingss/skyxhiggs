@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Sky x Higgs",
-    "description": "Marketing creative API for Sky x Higgs. Do not retry generate. Poll listJobs until completed or failed.",
+    "description": "Marketing creative API for Sky x Higgs. Do not retry generate. After generate, poll getJobStatus with statusUrl (or requestId) until completed or failed.",
     "version": "1.0.0"
   },
   "servers": [
@@ -15,7 +15,11 @@
       "get": {
         "operationId": "listModels",
         "summary": "List available models",
-        "security": [{ "BearerAuth": [] }],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Model catalog",
@@ -27,8 +31,12 @@
                     "defaults": {
                       "type": "object",
                       "properties": {
-                        "video": { "type": "string" },
-                        "image": { "type": "string" }
+                        "video": {
+                          "type": "string"
+                        },
+                        "image": {
+                          "type": "string"
+                        }
                       }
                     },
                     "models": {
@@ -36,13 +44,21 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "id": { "type": "string" },
-                          "label": { "type": "string" },
-                          "mode": { "type": "string" }
+                          "id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "mode": {
+                            "type": "string"
+                          }
                         }
                       }
                     },
-                    "note": { "type": "string" }
+                    "note": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -55,7 +71,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -69,14 +87,20 @@
         "operationId": "registerImage",
         "summary": "Register a public image URL",
         "description": "Download a public https image and return a Higgsfield publicUrl for generate.imageUrl.",
-        "security": [{ "BearerAuth": [] }],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["imageUrl"],
+                "required": [
+                  "imageUrl"
+                ],
                 "properties": {
                   "imageUrl": {
                     "type": "string",
@@ -95,7 +119,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "publicUrl": { "type": "string" }
+                    "publicUrl": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -108,7 +134,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -121,8 +149,12 @@
       "post": {
         "operationId": "generate",
         "summary": "Start an image or video generation",
-        "description": "Starts one job. Never retry this request. Then poll listJobs.",
-        "security": [{ "BearerAuth": [] }],
+        "description": "Starts one job. Never retry this request. Save statusUrl and requestId, then poll getJobStatus.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -156,7 +188,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -168,9 +202,13 @@
     "/api/actions/jobs": {
       "get": {
         "operationId": "listJobs",
-        "summary": "List jobs and poll status",
-        "description": "Poll after generate. When status is completed, use outputUrl.",
-        "security": [{ "BearerAuth": [] }],
+        "summary": "List jobs on this studio",
+        "description": "Optional history. Prefer getJobStatus after generate when polling a specific shot.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Job list",
@@ -185,8 +223,12 @@
                         "$ref": "#/components/schemas/Job"
                       }
                     },
-                    "configured": { "type": "boolean" },
-                    "authError": { "type": "boolean" }
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "authError": {
+                      "type": "boolean"
+                    }
                   }
                 }
               }
@@ -199,7 +241,77 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/actions/jobs/status": {
+      "post": {
+        "operationId": "getJobStatus",
+        "summary": "Poll one generation by statusUrl or requestId",
+        "description": "After generate, poll with the returned statusUrl (or requestId) until completed, failed, nsfw, or canceled. Do not fetch statusUrl yourself.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "statusUrl": {
+                    "type": "string",
+                    "description": "statusUrl from the generate response"
+                  },
+                  "requestId": {
+                    "type": "string",
+                    "description": "requestId from the generate response"
+                  },
+                  "jobId": {
+                    "type": "string",
+                    "description": "Optional studio job id from generate"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current job status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/Job"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -212,13 +324,19 @@
       "post": {
         "operationId": "cancelJob",
         "summary": "Cancel a queued job",
-        "security": [{ "BearerAuth": [] }],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -244,7 +362,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -264,54 +384,140 @@
     "schemas": {
       "GenerateBody": {
         "type": "object",
-        "required": ["prompt", "mode", "model"],
+        "required": [
+          "prompt",
+          "mode",
+          "model"
+        ],
         "properties": {
-          "prompt": { "type": "string" },
+          "prompt": {
+            "type": "string"
+          },
           "mode": {
             "type": "string",
-            "enum": ["video", "image"]
+            "enum": [
+              "video",
+              "image"
+            ]
           },
           "model": {
             "type": "string",
             "description": "Example seedance-2.5 or soul-v2"
           },
-          "duration": { "type": "integer" },
+          "duration": {
+            "type": "integer"
+          },
           "aspectRatio": {
             "type": "string",
             "description": "Use exactly one of these strings with a colon: 16:9 or 9:16 or 1:1"
           },
-          "audio": { "type": "boolean" },
-          "imageUrl": { "type": "string" },
+          "audio": {
+            "type": "boolean"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
           "style": {
             "type": "string",
-            "enum": ["cinematic", "anime", "ad", "trailer", "cartoon"]
+            "enum": [
+              "cinematic",
+              "anime",
+              "ad",
+              "trailer",
+              "cartoon"
+            ]
           },
-          "characterId": { "type": "string" }
+          "characterId": {
+            "type": "string"
+          }
         }
       },
       "Job": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "status": { "type": "string" },
-          "prompt": { "type": "string" },
-          "mode": { "type": "string" },
-          "model": { "type": "string" },
-          "audio": { "type": ["boolean", "null"] },
-          "aspectRatio": { "type": "string" },
-          "duration": { "type": ["integer", "null"] },
-          "outputUrl": { "type": ["string", "null"] },
-          "outputKind": { "type": ["string", "null"] },
-          "referenceId": { "type": ["string", "null"] },
-          "error": { "type": ["string", "null"] },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "audio": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "aspectRatio": {
+            "type": "string"
+          },
+          "duration": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "outputUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outputKind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "referenceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "statusUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "estimate": {
-            "type": ["object", "null"],
+            "type": [
+              "object",
+              "null"
+            ],
             "properties": {
-              "credits": { "type": "string" },
-              "usd": { "type": "string" }
+              "credits": {
+                "type": "string"
+              },
+              "usd": {
+                "type": "string"
+              }
             }
           },
-          "createdAt": { "type": "string" }
+          "createdAt": {
+            "type": "string"
+          }
         }
       }
     }
