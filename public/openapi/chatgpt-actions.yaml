@@ -1,0 +1,245 @@
+openapi: 3.1.0
+info:
+  title: Sky × Higgs
+  description: |
+    Generate images and videos through Sky × Higgs (Higgsfield proxy).
+    Authentication uses a Bearer ACTIONS_API_KEY for this API only.
+    Higgsfield credentials stay on the server and must never appear in chat.
+    Important: do not retry POST /api/actions/generate if it fails or times out.
+    Poll GET /api/actions/jobs until status is completed, failed, nsfw, or canceled.
+  version: 1.0.0
+servers:
+  - url: https://skyxhiggs.vercel.app
+    description: Sky × Higgs production
+paths:
+  /api/actions/models:
+    get:
+      operationId: listModels
+      summary: List available Create models
+      description: Call when unsure which model id to use, or for aspect rules with a photo.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Model catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  defaults:
+                    type: object
+                    properties:
+                      video: { type: string }
+                      image: { type: string }
+                  models:
+                    type: array
+                    items:
+                      type: object
+                  note:
+                    type: string
+        "401":
+          description: Unauthorized
+  /api/actions/register-image:
+    post:
+      operationId: registerImage
+      summary: Register a public image URL for generation
+      description: |
+        Download a public https image and store it on Higgsfield.
+        Use the returned publicUrl as imageUrl on generate.
+        Prefer this when the user provides a product or model photo.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [imageUrl]
+              properties:
+                imageUrl:
+                  type: string
+                  format: uri
+                  description: Public https URL of a JPEG, PNG, WebP, or GIF (max 20 MB)
+      responses:
+        "200":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  publicUrl: { type: string }
+        "400":
+          description: Invalid image
+        "401":
+          description: Unauthorized
+  /api/actions/generate:
+    post:
+      operationId: generate
+      summary: Start an image or video generation
+      description: |
+        Starts one Higgsfield job. Never retry this request.
+        On success, poll listJobs with the returned job id until a terminal status.
+        Defaults if omitted by the client parser still apply server-side where documented.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateBody"
+      responses:
+        "200":
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job:
+                    $ref: "#/components/schemas/Job"
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not enough credits or forbidden
+  /api/actions/jobs:
+    get:
+      operationId: listJobs
+      summary: List jobs and poll status
+      description: |
+        Returns recent jobs with live status. Use after generate.
+        Terminal statuses - completed, failed, nsfw, canceled.
+        When completed, share job.outputUrl with the user.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Job"
+                  configured:
+                    type: boolean
+                  authError:
+                    type: boolean
+        "401":
+          description: Unauthorized
+  /api/actions/jobs/{id}/cancel:
+    post:
+      operationId: cancelJob
+      summary: Cancel a queued job
+      description: Only works while status is queued. Do not cancel in-progress jobs.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job:
+                    $ref: "#/components/schemas/Job"
+        "401":
+          description: Unauthorized
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: ACTIONS_API_KEY from the Sky × Higgs server environment
+  schemas:
+    GenerateBody:
+      type: object
+      required: [prompt, mode, model]
+      properties:
+        prompt:
+          type: string
+          description: Creative brief for the generation
+        mode:
+          type: string
+          enum: [video, image]
+        model:
+          type: string
+          description: Model id from listModels (e.g. seedance-2.5, soul-v2, kling-2.6)
+        duration:
+          type: integer
+          description: Video length in seconds when the model allows it
+        aspectRatio:
+          type: string
+          enum: ["16:9", "9:16", "1:1"]
+          description: Prefer 9:16 for fashion/phone clips. Some image-to-video models ignore this.
+        audio:
+          type: boolean
+          description: Request audio when the video model supports it
+        imageUrl:
+          type: string
+          format: uri
+          description: Higgsfield publicUrl from registerImage, or another https media URL the model accepts
+        style:
+          type: string
+          enum: [cinematic, anime, ad, trailer, cartoon]
+          nullable: true
+        characterId:
+          type: string
+          nullable: true
+          description: Optional Soul ID reference id for Soul image models
+    Job:
+      type: object
+      properties:
+        id: { type: string }
+        status:
+          type: string
+          enum: [submitting, queued, in_progress, completed, failed, nsfw, canceled]
+        prompt: { type: string }
+        mode:
+          type: string
+          enum: [video, image]
+        model: { type: string }
+        audio:
+          type: boolean
+          nullable: true
+        aspectRatio:
+          type: string
+        duration:
+          type: integer
+          nullable: true
+        outputUrl:
+          type: string
+          nullable: true
+        outputKind:
+          type: string
+          enum: [video, image]
+          nullable: true
+        referenceId:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        estimate:
+          type: object
+          nullable: true
+          properties:
+            credits: { type: string }
+            usd: { type: string }
+        createdAt: { type: string }
