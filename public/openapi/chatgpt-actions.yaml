@@ -2,7 +2,8 @@ openapi: 3.1.0
 info:
   title: Sky × Higgs
   description: |
-    Generate images and videos through Sky × Higgs (Higgsfield proxy).
+    Marketing creative API for Sky × Higgs (Higgsfield proxy): ads, social, product,
+    brand films, campaigns, lifestyle, fitness, fashion, and similar briefs.
     Authentication uses a Bearer ACTIONS_API_KEY for this API only.
     Higgsfield credentials stay on the server and must never appear in chat.
     Important: do not retry POST /api/actions/generate if it fails or times out.
@@ -174,7 +175,7 @@ components:
       properties:
         prompt:
           type: string
-          description: Creative brief for the generation
+          description: Marketing creative brief for the generation
         mode:
           type: string
           enum: [video, image]

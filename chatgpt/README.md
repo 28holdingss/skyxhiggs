@@ -1,6 +1,6 @@
 # ChatGPT Custom GPT (Actions)
 
-Sky × Higgs exposes authenticated Action routes so a Custom GPT can generate through your deployed app. Higgsfield keys stay on the server.
+Sky × Higgs exposes authenticated Action routes so a Custom GPT can produce marketing creatives (ads, social, product, campaigns, and more) through your deployed app. Higgsfield keys stay on the server.
 
 ## 1. Env
 
