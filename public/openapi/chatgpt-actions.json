@@ -1,5 +1,5 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.1.0",
   "info": {
     "title": "Sky x Higgs",
     "description": "Marketing creative API for Sky x Higgs. Do not retry generate. Poll listJobs until completed or failed.",
@@ -21,11 +21,46 @@
             "description": "Model catalog",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "defaults": {
+                      "type": "object",
+                      "properties": {
+                        "video": { "type": "string" },
+                        "image": { "type": "string" }
+                      }
+                    },
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "label": { "type": "string" },
+                          "mode": { "type": "string" }
+                        }
+                      }
+                    },
+                    "note": { "type": "string" }
+                  }
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -66,7 +101,19 @@
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -81,31 +128,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": ["prompt", "mode", "model"],
-                "properties": {
-                  "prompt": { "type": "string" },
-                  "mode": {
-                    "type": "string",
-                    "enum": ["video", "image"]
-                  },
-                  "model": {
-                    "type": "string",
-                    "description": "Example seedance-2.5 or soul-v2"
-                  },
-                  "duration": { "type": "integer" },
-                  "aspectRatio": {
-                    "type": "string",
-                    "description": "Use exactly one of these strings: 16:9 or 9:16 or 1:1"
-                  },
-                  "audio": { "type": "boolean" },
-                  "imageUrl": { "type": "string" },
-                  "style": {
-                    "type": "string",
-                    "enum": ["cinematic", "anime", "ad", "trailer", "cartoon"]
-                  },
-                  "characterId": { "type": "string" }
-                }
+                "$ref": "#/components/schemas/GenerateBody"
               }
             }
           }
@@ -115,11 +138,30 @@
             "description": "Job queued",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/Job"
+                    }
+                  }
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -134,11 +176,35 @@
             "description": "Job list",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Job"
+                      }
+                    },
+                    "configured": { "type": "boolean" },
+                    "authError": { "type": "boolean" }
+                  }
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -160,11 +226,30 @@
             "description": "Updated job",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/Job"
+                    }
+                  }
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -174,6 +259,60 @@
       "BearerAuth": {
         "type": "http",
         "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "GenerateBody": {
+        "type": "object",
+        "required": ["prompt", "mode", "model"],
+        "properties": {
+          "prompt": { "type": "string" },
+          "mode": {
+            "type": "string",
+            "enum": ["video", "image"]
+          },
+          "model": {
+            "type": "string",
+            "description": "Example seedance-2.5 or soul-v2"
+          },
+          "duration": { "type": "integer" },
+          "aspectRatio": {
+            "type": "string",
+            "description": "Use exactly one of these strings with a colon: 16:9 or 9:16 or 1:1"
+          },
+          "audio": { "type": "boolean" },
+          "imageUrl": { "type": "string" },
+          "style": {
+            "type": "string",
+            "enum": ["cinematic", "anime", "ad", "trailer", "cartoon"]
+          },
+          "characterId": { "type": "string" }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string" },
+          "prompt": { "type": "string" },
+          "mode": { "type": "string" },
+          "model": { "type": "string" },
+          "audio": { "type": ["boolean", "null"] },
+          "aspectRatio": { "type": "string" },
+          "duration": { "type": ["integer", "null"] },
+          "outputUrl": { "type": ["string", "null"] },
+          "outputKind": { "type": ["string", "null"] },
+          "referenceId": { "type": ["string", "null"] },
+          "error": { "type": ["string", "null"] },
+          "estimate": {
+            "type": ["object", "null"],
+            "properties": {
+              "credits": { "type": "string" },
+              "usd": { "type": "string" }
+            }
+          },
+          "createdAt": { "type": "string" }
+        }
       }
     }
   }
